@@ -33,7 +33,18 @@ jobs:
           npm run build
 
       # 5️⃣ Copy backend + frontend build to VM
-      - name: Copy files to Azure VM
+      # - name: Copy files to Azure VM
+      #   uses: appleboy/scp-action@v0.1.5
+      #   with:
+      #     host: ${{ secrets.VM_IP }}
+      #     username: ${{ secrets.VM_USER }}
+      #     key: ${{ secrets.VM_SSH_KEY }}
+      #     port: 22
+      #     source: |
+      #       backend/**
+      #       frontend/dist/**
+      #     target: /home/${{ secrets.VM_USER }}/SkinCareStore
+      - name: Copy backend + frontend to VM 
         uses: appleboy/scp-action@v0.1.5
         with:
           host: ${{ secrets.VM_IP }}
@@ -41,10 +52,9 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           port: 22
           source: |
-            backend/**
-            frontend/dist/**
-          target: /home/${{ secrets.VM_USER }}/SkinCareStore
-
+           backend/**
+           frontend/dist/**
+           target: /home/${{ secrets.VM_USER }}/SkinCareStore
       # 6️⃣ SSH into VM: start backend + set frontend permissions + restart Nginx
       - name: SSH and deploy
         uses: appleboy/ssh-action@v0.1.5
