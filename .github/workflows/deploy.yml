@@ -3,7 +3,7 @@ name: Deploy to Azure VM
 on:
   push:
     branches:
-      - main  # jab main branch me push ho
+      - main
 
 jobs:
   deploy:
@@ -32,27 +32,32 @@ jobs:
           npm install
           npm run build
 
-      # 4.1️⃣ Verify frontend build
-      - name: Check frontend build
-        working-directory: ./frontend
-        run: ls -la dist
-
-      # 5️⃣ Copy backend + frontend build to VM
-      - name: Copy files to Azure VM
+      # 5️⃣ Copy backend and frontend to VM
+      - name: Copy backend to VM
         uses: appleboy/scp-action@v0.1.5
         with:
           host: ${{ secrets.VM_IP }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           port: 22
-          source: |
-            backend
-            frontend/dist
-          target: /home/${{ secrets.VM_USER }}/SkinCareStore
-          rm: true          # remove previous files
-          overwrite: true   # overwrite existing files
+          source: "backend/**"
+          target: /home/${{ secrets.VM_USER }}/SkinCareStore/backend
+          rm: true
+          overwrite: true
 
-      # 6️⃣ SSH into VM: start backend + set frontend permissions + restart Nginx
+      - name: Copy frontend to VM
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.VM_IP }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: 22
+          source: "frontend/dist/**"
+          target: /var/www/html
+          rm: true
+          overwrite: true
+
+      # 6️⃣ SSH and deploy
       - name: SSH and deploy
         uses: appleboy/ssh-action@v0.1.5
         with:
@@ -61,15 +66,18 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           port: 22
           script: |
-            # Backend: stop previous PM2 process and start backend
-            cd /home/${{ secrets.VM_USER }}/SkinCareStore/backend
+            # Stop backend if running
             pm2 stop skin-backend || true
+            pm2 delete skin-backend || true
+
+            # Start backend
+            cd /home/${{ secrets.VM_USER }}/SkinCareStore/backend
             pm2 start index.js --name skin-backend
             pm2 save
 
-            # Frontend: set permissions
-            sudo chown -R www-data:www-data /home/${{ secrets.VM_USER }}/SkinCareStore/frontend/dist
-            sudo chmod -R 755 /home/${{ secrets.VM_USER }}/SkinCareStore/frontend/dist
+            # Set nginx permissions (frontend already in /var/www/html)
+            sudo chown -R www-data:www-data /var/www/html
+            sudo chmod -R 755 /var/www/html
 
             # Restart Nginx
             sudo systemctl restart nginx
