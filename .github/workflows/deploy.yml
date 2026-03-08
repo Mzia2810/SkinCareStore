@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -42,7 +42,7 @@ jobs:
           port: 22
           source: |
             backend/**
-            frontend/**
+            frontend/dist/**
           target: /home/${{ secrets.VM_USER }}/SkinCareStore
 
       # 6️⃣ SSH into VM: start backend + set permissions + restart Nginx
