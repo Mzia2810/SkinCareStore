@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
+      # 1️⃣ Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -45,7 +45,7 @@ jobs:
           rm: true
           overwrite: true
 
-      # 6️⃣ Copy frontend to VM temp folder
+      # 6️⃣ Copy frontend to VM temporary folder
       - name: Copy frontend to VM temp
         uses: appleboy/scp-action@v0.1.5
         with:
@@ -76,7 +76,7 @@ jobs:
             pm2 start index.js --name skin-backend
             pm2 save
 
-            # 🔹 Move frontend from temp to /var/www/html (with sudo)
+            # 🔹 Move frontend from temp to /var/www/html (sudo required)
             sudo rm -rf /var/www/html/*
             sudo mv /home/${{ secrets.VM_USER }}/frontend_temp/* /var/www/html/
             sudo chown -R www-data:www-data /var/www/html
