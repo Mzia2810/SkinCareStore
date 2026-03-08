@@ -40,12 +40,12 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           port: 22
-          source: "backend/**"
-          target: /home/${{ secrets.VM_USER }}/SkinCareStore/backend
+          source: "backend"
+          target: "/home/${{ secrets.VM_USER }}/SkinCareStore/backend"
           rm: true
           overwrite: true
 
-      # 6️⃣ Copy frontend build to temp folder on VM
+      # 6️⃣ Copy frontend to VM temp folder
       - name: Copy frontend to VM temp
         uses: appleboy/scp-action@v0.1.5
         with:
@@ -53,12 +53,12 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           port: 22
-          source: "frontend/dist/**"
-          target: /home/${{ secrets.VM_USER }}/frontend_temp
+          source: "frontend/dist"
+          target: "/home/${{ secrets.VM_USER }}/frontend_temp"
           rm: true
           overwrite: true
 
-      # 7️⃣ SSH and deploy backend + move frontend
+      # 7️⃣ SSH and deploy
       - name: SSH and deploy
         uses: appleboy/ssh-action@v0.1.5
         with:
@@ -67,20 +67,22 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           port: 22
           script: |
-            # 🔹 Backend deployment
-            cd /home/${{ secrets.VM_USER }}/SkinCareStore/backend
+            # Flatten backend folder
+            mv ~/SkinCareStore/backend/backend/* ~/SkinCareStore/backend/ || true
+            rm -rf ~/SkinCareStore/backend/backend || true
 
-            # Stop existing PM2 process if any
+            # 🔹 Stop backend if running
             pm2 stop skin-backend || true
             pm2 delete skin-backend || true
 
-            # Start backend with PM2
+            # 🔹 Start backend
+            cd ~/SkinCareStore/backend
             pm2 start index.js --name skin-backend
             pm2 save
 
-            # 🔹 Frontend deployment
+            # 🔹 Move frontend from temp to /var/www/html (sudo required)
             sudo rm -rf /var/www/html/*
-            sudo mv /home/${{ secrets.VM_USER }}/frontend_temp/* /var/www/html/
+            sudo mv ~/frontend_temp/* /var/www/html/
             sudo chown -R www-data:www-data /var/www/html
             sudo chmod -R 755 /var/www/html
 
