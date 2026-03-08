@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Setup Node
+      # 2️⃣ Setup Node.js
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
@@ -29,14 +29,17 @@ jobs:
       - name: Build frontend
         working-directory: ./frontend
         run: |
-          npm install
+          npm ci
           npm run build
 
       # 4.1️⃣ Debug frontend build
-      - name: Debug frontend build
+      - name: Check frontend build
         working-directory: ./frontend
         run: |
+          echo "Current directory: $(pwd)"
+          echo "List files:"
           ls -la
+          echo "Check dist folder:"
           ls -la dist
 
       # 5️⃣ Copy backend + frontend build to VM
@@ -51,6 +54,8 @@ jobs:
             backend
             frontend/dist
           target: /home/${{ secrets.VM_USER }}/SkinCareStore
+          rm: true        # Remove previous files before copy
+          overwrite: true # Overwrite existing files
 
       # 6️⃣ SSH into VM: start backend + set frontend permissions + restart Nginx
       - name: SSH and deploy
@@ -61,10 +66,15 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           port: 22
           script: |
+            # Backend: stop previous PM2 process and start backend
             cd /home/${{ secrets.VM_USER }}/SkinCareStore/backend
             pm2 stop skin-backend || true
             pm2 start index.js --name skin-backend
             pm2 save
+
+            # Frontend: set permissions
             sudo chown -R www-data:www-data /home/${{ secrets.VM_USER }}/SkinCareStore/frontend/dist
             sudo chmod -R 755 /home/${{ secrets.VM_USER }}/SkinCareStore/frontend/dist
+
+            # Restart Nginx
             sudo systemctl restart nginx
