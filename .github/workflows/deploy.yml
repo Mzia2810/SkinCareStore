@@ -3,14 +3,14 @@ name: Deploy to Azure VM
 on:
   push:
     branches:
-      - main   # Jab main branch me push ho
+      - main  # jab main branch me push ho
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
+      # 1️⃣ Checkout code
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: '20'  # backend + frontend ke liye LTS
+          node-version: '20'
 
       # 3️⃣ Install backend dependencies
       - name: Install backend dependencies
@@ -32,7 +32,7 @@ jobs:
           npm install
           npm run build
 
-      # 5️⃣ Copy backend + frontend to VM
+      # 5️⃣ Copy backend + frontend build to VM
       - name: Copy files to Azure VM
         uses: appleboy/scp-action@v0.1.5
         with:
@@ -45,7 +45,7 @@ jobs:
             frontend/dist/**
           target: /home/${{ secrets.VM_USER }}/SkinCareStore
 
-      # 6️⃣ SSH into VM: start backend + set permissions + restart Nginx
+      # 6️⃣ SSH into VM: start backend + set frontend permissions + restart Nginx
       - name: SSH and deploy
         uses: appleboy/ssh-action@v0.1.5
         with:
@@ -54,17 +54,15 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           port: 22
           script: |
-            # Navigate to backend
+            # Backend: stop previous PM2 process and start backend
             cd /home/${{ secrets.VM_USER }}/SkinCareStore/backend
-
-            # Stop previous PM2 process (if any) and start backend
             pm2 stop skin-backend || true
             pm2 start index.js --name skin-backend
             pm2 save
 
-            # Set frontend permissions
+            # Frontend: set permissions
             sudo chown -R www-data:www-data /home/${{ secrets.VM_USER }}/SkinCareStore/frontend/dist
             sudo chmod -R 755 /home/${{ secrets.VM_USER }}/SkinCareStore/frontend/dist
 
-            # Restart Nginx to serve frontend
+            # Restart Nginx
             sudo systemctl restart nginx
