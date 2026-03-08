@@ -45,8 +45,8 @@ jobs:
           rm: true
           overwrite: true
 
-      # 6️⃣ Copy frontend to VM temporary folder
-      - name: Copy frontend to VM temp
+      # 6️⃣ Copy frontend build to VM temp folder
+      - name: Copy frontend build to VM temp
         uses: appleboy/scp-action@v0.1.5
         with:
           host: ${{ secrets.VM_IP }}
@@ -58,7 +58,7 @@ jobs:
           rm: true
           overwrite: true
 
-      # 7️⃣ SSH and deploy backend + move frontend
+      # 7️⃣ SSH into VM and deploy
       - name: SSH and deploy
         uses: appleboy/ssh-action@v0.1.5
         with:
@@ -76,11 +76,11 @@ jobs:
             pm2 start index.js --name skin-backend
             pm2 save
 
-            # 🔹 Move frontend from temp to /var/www/html (sudo required)
-            sudo rm -rf /var/www/html/*
-            sudo mv /home/${{ secrets.VM_USER }}/frontend_temp/* /var/www/html/
-            sudo chown -R www-data:www-data /var/www/html
-            sudo chmod -R 755 /var/www/html
+            # 🔹 Move frontend from temp to /var/www/html/frontend
+            sudo rm -rf /var/www/html/frontend/*
+            sudo mv /home/${{ secrets.VM_USER }}/frontend_temp/* /var/www/html/frontend/
+            sudo chown -R www-data:www-data /var/www/html/frontend
+            sudo chmod -R 755 /var/www/html/frontend
 
             # 🔹 Restart Nginx
             sudo systemctl restart nginx
