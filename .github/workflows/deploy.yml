@@ -3,14 +3,14 @@ name: Deploy to Azure VM
 on:
   push:
     branches:
-      - main
+      - main  # jab main branch me push ho
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repo
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -29,18 +29,13 @@ jobs:
       - name: Build frontend
         working-directory: ./frontend
         run: |
-          npm ci
+          npm install
           npm run build
 
-      # 4.1️⃣ Debug frontend build
+      # 4.1️⃣ Verify frontend build
       - name: Check frontend build
         working-directory: ./frontend
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "List files:"
-          ls -la
-          echo "Check dist folder:"
-          ls -la dist
+        run: ls -la dist
 
       # 5️⃣ Copy backend + frontend build to VM
       - name: Copy files to Azure VM
@@ -54,8 +49,8 @@ jobs:
             backend
             frontend/dist
           target: /home/${{ secrets.VM_USER }}/SkinCareStore
-          rm: true        # Remove previous files before copy
-          overwrite: true # Overwrite existing files
+          rm: true          # remove previous files
+          overwrite: true   # overwrite existing files
 
       # 6️⃣ SSH into VM: start backend + set frontend permissions + restart Nginx
       - name: SSH and deploy
