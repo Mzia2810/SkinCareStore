@@ -1,4 +1,4 @@
-name: Docker CI/CD to Azure VM
+iname: Docker CI/CD to Azure VM
 
 on:
   push:
@@ -7,42 +7,55 @@ on:
 
 jobs:
   deploy:
-
     runs-on: ubuntu-latest
 
     steps:
-
+    # 1️⃣ Checkout code
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    - name: Login to Azure Container Registry
+    # 2️⃣ Login to Azure Container Registry
+    - name: Login to ACR
       run: |
         echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
 
-    - name: Build Backend Image
+    # 3️⃣ Build Backend Image
+    - name: Build Backend Docker Image
       run: |
         docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest ./backend
 
-    - name: Push Backend Image
+    # 4️⃣ Push Backend Image
+    - name: Push Backend Docker Image
       run: |
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
 
-    - name: Build Frontend Image
+    # 5️⃣ Build Frontend Image
+    - name: Build Frontend Docker Image
       run: |
         docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest ./frontend
 
-    - name: Push Frontend Image
+    # 6️⃣ Push Frontend Image
+    - name: Push Frontend Docker Image
       run: |
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
 
+    # 7️⃣ Setup SSH Key for VM
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.VM_SSH_KEY_BASE64 }}" | base64 -d > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+
+    # 8️⃣ Deploy via SSH
     - name: Deploy to Azure VM
       uses: appleboy/ssh-action@v0.1.10
       with:
         host: ${{ secrets.VM_HOST }}
         username: ${{ secrets.VM_USER }}
-        key: ${{ secrets.VM_SSH_KEY }}
+        key: ${{ secrets.VM_SSH_KEY_BASE64 }}
+        port: 22
         script: |
-
           docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
 
           docker pull ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
@@ -50,7 +63,6 @@ jobs:
 
           docker stop backend || true
           docker rm backend || true
-
           docker stop frontend || true
           docker rm frontend || true
 
