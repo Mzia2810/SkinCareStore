@@ -1,4 +1,4 @@
-iname: Docker CI/CD to Azure VM
+name: Docker CI/CD to Azure VM
 
 on:
   push:
