@@ -10,61 +10,57 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1️⃣ Checkout code
-    - name: Checkout Code
-      uses: actions/checkout@v3
+      # 1️⃣ Checkout code
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    # 2️⃣ Login to Azure Container Registry
-    - name: Login to ACR
-      run: |
-        echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+      # 2️⃣ Login to Azure Container Registry
+      - name: Login to ACR
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
 
-    # 3️⃣ Build Backend Image
-    - name: Build Backend Docker Image
-      run: |
-        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest ./backend
+      # 3️⃣ Build Backend Image
+      - name: Build Backend Docker Image
+        run: docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest ./backend
 
-    # 4️⃣ Push Backend Image
-    - name: Push Backend Docker Image
-      run: |
-        docker push ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
+      # 4️⃣ Push Backend Image
+      - name: Push Backend Docker Image
+        run: docker push ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
 
-    # 5️⃣ Build Frontend Image
-    - name: Build Frontend Docker Image
-      run: |
-        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest ./frontend
+      # 5️⃣ Build Frontend Image
+      - name: Build Frontend Docker Image
+        run: docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest ./frontend
 
-    # 6️⃣ Push Frontend Image
-    - name: Push Frontend Docker Image
-      run: |
-        docker push ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
+      # 6️⃣ Push Frontend Image
+      - name: Push Frontend Docker Image
+        run: docker push ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
 
-    # 7️⃣ Setup SSH Key for VM
-    - name: Setup SSH
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.VM_SSH_KEY_BASE64 }}" | base64 -d > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+      # 7️⃣ Setup SSH Key for VM
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
 
-    # 8️⃣ Deploy via SSH
-    - name: Deploy to Azure VM
-      uses: appleboy/ssh-action@v0.1.10
-      with:
-        host: ${{ secrets.VM_HOST }}
-        username: ${{ secrets.VM_USER }}
-        key: ${{ secrets.VM_SSH_KEY_BASE64 }}
-        port: 22
-        script: |
-          docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
+      # 8️⃣ Deploy via SSH
+      - name: Deploy to Azure VM
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: 22
+          script: |
+            docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
 
-          docker pull ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
-          docker pull ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
+            docker pull ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
+            docker pull ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
 
-          docker stop backend || true
-          docker rm backend || true
-          docker stop frontend || true
-          docker rm frontend || true
+            docker stop backend || true
+            docker rm backend || true
+            docker stop frontend || true
+            docker rm frontend || true
 
-          docker run -d -p 5000:5000 --name backend ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
-          docker run -d -p 80:80 --name frontend ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
+            docker run -d -p 5000:5000 --name backend ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
+            docker run -d -p 80:80 --name frontend ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
