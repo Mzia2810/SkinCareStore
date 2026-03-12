@@ -1,4 +1,4 @@
-name: Deploy to Azure VM
+name: Docker CI/CD to Azure VM
 
 on:
   push:
@@ -7,84 +7,52 @@ on:
 
 jobs:
   deploy:
+
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
-      - name: Checkout repository
-        uses: actions/checkout@v3
 
-      # 2️⃣ Setup Node.js
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
+    - name: Checkout Code
+      uses: actions/checkout@v3
 
-      # 3️⃣ Install backend dependencies
-      - name: Install backend dependencies
-        working-directory: ./backend
-        run: npm install
+    - name: Login to Azure Container Registry
+      run: |
+        echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
 
-      # 4️⃣ Build frontend
-      - name: Build frontend
-        working-directory: ./frontend
-        run: |
-          npm install
-          npm run build
+    - name: Build Backend Image
+      run: |
+        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest ./backend
 
-      # 5️⃣ Copy backend to VM
-      - name: Copy backend to VM
-        uses: appleboy/scp-action@v0.1.5
-        with:
-          host: ${{ secrets.VM_IP }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          port: 22
-          source: "backend"
-          target: "/home/${{ secrets.VM_USER }}/SkinCareStore/backend"
-          rm: true
-          overwrite: true
+    - name: Push Backend Image
+      run: |
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
 
-      # 6️⃣ Copy frontend to VM temp folder
-      - name: Copy frontend to VM temp
-        uses: appleboy/scp-action@v0.1.5
-        with:
-          host: ${{ secrets.VM_IP }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          port: 22
-          source: "frontend/dist"
-          target: "/home/${{ secrets.VM_USER }}/frontend_temp"
-          rm: true
-          overwrite: true
+    - name: Build Frontend Image
+      run: |
+        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest ./frontend
 
-      # 7️⃣ SSH and deploy
-      - name: SSH and deploy
-        uses: appleboy/ssh-action@v0.1.5
-        with:
-          host: ${{ secrets.VM_IP }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          port: 22
-          script: |
-            # Flatten backend folder
-            mv ~/SkinCareStore/backend/backend/* ~/SkinCareStore/backend/ || true
-            rm -rf ~/SkinCareStore/backend/backend || true
+    - name: Push Frontend Image
+      run: |
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
 
-            # 🔹 Stop backend if running
-            pm2 stop skin-backend || true
-            pm2 delete skin-backend || true
+    - name: Deploy to Azure VM
+      uses: appleboy/ssh-action@v0.1.10
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USER }}
+        key: ${{ secrets.VM_SSH_KEY }}
+        script: |
 
-            # 🔹 Start backend
-            cd ~/SkinCareStore/backend
-            pm2 start index.js --name skin-backend
-            pm2 save
+          docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
 
-            # 🔹 Move frontend from temp to /var/www/html (sudo required)
-            sudo rm -rf /var/www/html/*
-            sudo mv ~/frontend_temp/* /var/www/html/
-            sudo chown -R www-data:www-data /var/www/html
-            sudo chmod -R 755 /var/www/html
+          docker pull ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
+          docker pull ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
 
-            # 🔹 Restart Nginx
-            sudo systemctl restart nginx
+          docker stop backend || true
+          docker rm backend || true
+
+          docker stop frontend || true
+          docker rm frontend || true
+
+          docker run -d -p 5000:5000 --name backend ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
+          docker run -d -p 80:80 --name frontend ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
