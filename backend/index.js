@@ -28,7 +28,7 @@ app.use("/product", require('./src/routes/cart'));
 
 // Test Route
 app.get('/', (req, res) => {
-    res.send('Hello World  hi I am backend from git pipeline ab to chal jaa !');
+    res.send('Hello World  hi I am  ackend from git pipeline ab to chal jaa !');
 });
 
 // Connect to MongoDB and start server
