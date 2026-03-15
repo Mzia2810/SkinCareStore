@@ -22,8 +22,8 @@ jobs:
       - name: Login to ACR
         run: |
           echo "${{ secrets.ACR_PASSWORD }}" | docker login $ACR_LOGIN_SERVER \
-          --username ${{ secrets.ACR_USERNAME }} \
-          --password-stdin
+            --username ${{ secrets.ACR_USERNAME }} \
+            --password-stdin
 
       # -----------------------------
       # BUILD BACKEND (Node.js)
@@ -53,7 +53,7 @@ jobs:
           docker push $ACR_LOGIN_SERVER/skincare-frontend:latest
 
       # -----------------------------
-      # DEPLOY BACKEND VM
+      # DEPLOY BACKEND VM (port 8000)
       # -----------------------------
       - name: Deploy Backend VM
         uses: appleboy/ssh-action@v0.1.10
@@ -63,20 +63,17 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             docker login $ACR_LOGIN_SERVER -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
-            
             docker pull $ACR_LOGIN_SERVER/skincare-backend:latest
-            
             docker stop backend || true
             docker rm backend || true
-            
             docker run -d \
-              -p 5000:5000 \
+              -p 8000:8000 \
               --name backend \
               --restart unless-stopped \
               $ACR_LOGIN_SERVER/skincare-backend:latest
 
       # -----------------------------
-      # DEPLOY FRONTEND VM
+      # DEPLOY FRONTEND VM (port 80)
       # -----------------------------
       - name: Deploy Frontend VM
         uses: appleboy/ssh-action@v0.1.10
@@ -86,12 +83,9 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             docker login $ACR_LOGIN_SERVER -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
-
             docker pull $ACR_LOGIN_SERVER/skincare-frontend:latest
-
             docker stop frontend || true
             docker rm frontend || true
-
             docker run -d \
               -p 80:80 \
               --name frontend \
