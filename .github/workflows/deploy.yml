@@ -14,7 +14,7 @@ jobs:
 
     steps:
 
-      # 1️⃣ Checkout repo
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -63,12 +63,12 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
             docker login $ACR_LOGIN_SERVER -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
-
+            
             docker pull $ACR_LOGIN_SERVER/skincare-backend:latest
-
+            
             docker stop backend || true
             docker rm backend || true
-
+            
             docker run -d \
               -p 5000:5000 \
               --name backend \
