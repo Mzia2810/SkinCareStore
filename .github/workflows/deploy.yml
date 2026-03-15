@@ -6,14 +6,13 @@ on:
       - main
 
 env:
-  ACR_LOGIN_SERVER: electronicsecommerce.azurecr.io
+  ACR_LOGIN_SERVER: skincarecontainer.azurecr.io
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-
       # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -21,9 +20,9 @@ jobs:
       # 2️⃣ Login to Azure Container Registry
       - name: Login to ACR
         run: |
-          echo "${{ secrets.ACR_PASSWORD }}" | docker login $ACR_LOGIN_SERVER \
-            --username ${{ secrets.ACR_USERNAME }} \
-            --password-stdin
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.ACR_LOGIN_SERVER }} \
+          --username ${{ secrets.ACR_USERNAME }} \
+          --password-stdin
 
       # -----------------------------
       # BUILD BACKEND (Node.js)
@@ -32,11 +31,11 @@ jobs:
         run: |
           cd backend
           npm install
-          docker build -t $ACR_LOGIN_SERVER/skincare-backend:latest .
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/skincare-backend:latest .
 
       - name: Push Backend Image
         run: |
-          docker push $ACR_LOGIN_SERVER/skincare-backend:latest
+          docker push ${{ env.ACR_LOGIN_SERVER }}/skincare-backend:latest
 
       # -----------------------------
       # BUILD FRONTEND (Vite + Nginx)
@@ -46,14 +45,14 @@ jobs:
           cd frontend
           npm install
           npm run build
-          docker build -t $ACR_LOGIN_SERVER/skincare-frontend:latest .
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/skincare-frontend:latest .
 
       - name: Push Frontend Image
         run: |
-          docker push $ACR_LOGIN_SERVER/skincare-frontend:latest
+          docker push ${{ env.ACR_LOGIN_SERVER }}/skincare-frontend:latest
 
       # -----------------------------
-      # DEPLOY BACKEND VM (port 8000)
+      # DEPLOY BACKEND VM
       # -----------------------------
       - name: Deploy Backend VM
         uses: appleboy/ssh-action@v0.1.10
@@ -62,18 +61,21 @@ jobs:
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            docker login $ACR_LOGIN_SERVER -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
-            docker pull $ACR_LOGIN_SERVER/skincare-backend:latest
+            docker login ${{ env.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
+
+            docker pull ${{ env.ACR_LOGIN_SERVER }}/skincare-backend:latest
+
             docker stop backend || true
             docker rm backend || true
+
             docker run -d \
               -p 8000:8000 \
               --name backend \
               --restart unless-stopped \
-              $ACR_LOGIN_SERVER/skincare-backend:latest
+              ${{ env.ACR_LOGIN_SERVER }}/skincare-backend:latest
 
       # -----------------------------
-      # DEPLOY FRONTEND VM (port 80)
+      # DEPLOY FRONTEND VM
       # -----------------------------
       - name: Deploy Frontend VM
         uses: appleboy/ssh-action@v0.1.10
@@ -82,12 +84,15 @@ jobs:
           username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            docker login $ACR_LOGIN_SERVER -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
-            docker pull $ACR_LOGIN_SERVER/skincare-frontend:latest
+            docker login ${{ env.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
+
+            docker pull ${{ env.ACR_LOGIN_SERVER }}/skincare-frontend:latest
+
             docker stop frontend || true
             docker rm frontend || true
+
             docker run -d \
               -p 80:80 \
               --name frontend \
               --restart unless-stopped \
-              $ACR_LOGIN_SERVER/skincare-frontend:latest
+              ${{ env.ACR_LOGIN_SERVER }}/skincare-frontend:latest
