@@ -1,66 +1,99 @@
-name: Docker CI/CD to Azure VM
+name: Skincare Docker CI/CD to Azure VM
 
 on:
   push:
     branches:
       - main
 
+env:
+  ACR_LOGIN_SERVER: electronicsecommerce.azurecr.io
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code
-      - name: Checkout Code
+
+      # 1️⃣ Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       # 2️⃣ Login to Azure Container Registry
       - name: Login to ACR
         run: |
-          echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login $ACR_LOGIN_SERVER \
+          --username ${{ secrets.ACR_USERNAME }} \
+          --password-stdin
 
-      # 3️⃣ Build Backend Image
+      # -----------------------------
+      # BUILD BACKEND (Node.js)
+      # -----------------------------
       - name: Build Backend Docker Image
-        run: docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest ./backend
-
-      # 4️⃣ Push Backend Image
-      - name: Push Backend Docker Image
-        run: docker push ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
-
-      # 5️⃣ Build Frontend Image
-      - name: Build Frontend Docker Image
-        run: docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest ./frontend
-
-      # 6️⃣ Push Frontend Image
-      - name: Push Frontend Docker Image
-        run: docker push ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
-
-      # 7️⃣ Setup SSH Key for VM
-      - name: Setup SSH Key
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+          cd backend
+          npm install
+          docker build -t $ACR_LOGIN_SERVER/skincare-backend:latest .
 
-      # 8️⃣ Deploy via SSH
-      - name: Deploy to Azure VM
+      - name: Push Backend Image
+        run: |
+          docker push $ACR_LOGIN_SERVER/skincare-backend:latest
+
+      # -----------------------------
+      # BUILD FRONTEND (Vite + Nginx)
+      # -----------------------------
+      - name: Build Frontend Docker Image
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          docker build -t $ACR_LOGIN_SERVER/skincare-frontend:latest .
+
+      - name: Push Frontend Image
+        run: |
+          docker push $ACR_LOGIN_SERVER/skincare-frontend:latest
+
+      # -----------------------------
+      # DEPLOY BACKEND VM
+      # -----------------------------
+      - name: Deploy Backend VM
         uses: appleboy/ssh-action@v0.1.10
         with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
+          host: ${{ secrets.BACKEND_VM_IP }}
+          username: ${{ secrets.VM_USERNAME }}
           key: ${{ secrets.VM_SSH_KEY }}
-          port: 22
           script: |
-            docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
+            docker login $ACR_LOGIN_SERVER -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
 
-            docker pull ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
-            docker pull ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
+            docker pull $ACR_LOGIN_SERVER/skincare-backend:latest
 
             docker stop backend || true
             docker rm backend || true
+
+            docker run -d \
+              -p 5000:5000 \
+              --name backend \
+              --restart unless-stopped \
+              $ACR_LOGIN_SERVER/skincare-backend:latest
+
+      # -----------------------------
+      # DEPLOY FRONTEND VM
+      # -----------------------------
+      - name: Deploy Frontend VM
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.FRONTEND_VM_IP }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            docker login $ACR_LOGIN_SERVER -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
+
+            docker pull $ACR_LOGIN_SERVER/skincare-frontend:latest
+
             docker stop frontend || true
             docker rm frontend || true
 
-            docker run -d -p 5000:5000 --name backend ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
-            docker run -d -p 80:80 --name frontend ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
+            docker run -d \
+              -p 80:80 \
+              --name frontend \
+              --restart unless-stopped \
+              $ACR_LOGIN_SERVER/skincare-frontend:latest
