@@ -64,3 +64,86 @@ jobs:
 
             docker run -d -p 5000:5000 --name backend ${{ secrets.ACR_LOGIN_SERVER }}/backend:latest
             docker run -d -p 80:80 --name frontend ${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            name: Skincare Docker CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  ACR_LOGIN_SERVER: skincarecontainer.azurecr.io
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+
+    - name: Login to ACR
+      run: |
+        echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.ACR_LOGIN_SERVER }} \
+        --username ${{ secrets.ACR_USERNAME }} \
+        --password-stdin
+
+    # Build backend
+    - name: Build Backend
+      run: |
+        cd backend
+        docker build -t $ACR_LOGIN_SERVER/skincare-backend:latest .
+        docker push $ACR_LOGIN_SERVER/skincare-backend:latest
+
+    # Build frontend
+    - name: Build Frontend
+      run: |
+        cd frontend
+        docker build -t $ACR_LOGIN_SERVER/skincare-frontend:latest .
+        docker push $ACR_LOGIN_SERVER/skincare-frontend:latest
+
+    # Deploy (ONLY FRONTEND VM)
+    - name: Deploy via Frontend VM
+      uses: appleboy/ssh-action@v0.1.10
+      with:
+        host: ${{ secrets.FRONTEND_VM_IP }}
+        username: ${{ secrets.VM_USERNAME }}
+        key: ${{ secrets.VM_SSH_KEY }}
+        script: |
+
+          docker login skincarecontainer.azurecr.io -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
+
+          docker pull skincarecontainer.azurecr.io/skincare-backend:latest
+          docker pull skincarecontainer.azurecr.io/skincare-frontend:latest
+
+          docker stop backend || true
+          docker rm backend || true
+
+          docker stop frontend || true
+          docker rm frontend || true
+
+          docker run -d -p 8000:8000 --name backend skincarecontainer.azurecr.io/skincare-backend:latest
+          docker run -d -p 80:80 --name frontend skincarecontainer.azurecr.io/skincare-frontend:latest
