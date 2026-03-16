@@ -22,8 +22,7 @@ jobs:
     - name: Login to ACR
       run: |
         echo "${{ secrets.ACR_PASSWORD }}" | docker login $ACR_LOGIN_SERVER \
-        --username ${{ secrets.ACR_USERNAME }} \
-        --password-stdin
+        --username ${{ secrets.ACR_USERNAME }} --password-stdin
 
     - name: Build and Push Backend
       run: |
@@ -48,6 +47,9 @@ jobs:
         key: ${{ secrets.VM_SSH_KEY }}
         port: 22
         script: |
+          #!/bin/bash
+          set -e
+
           # Install Docker if missing
           if ! command -v docker &> /dev/null; then
             sudo apt update
@@ -56,10 +58,10 @@ jobs:
             sudo systemctl start docker
           fi
 
-          sudo docker login $ACR_LOGIN_SERVER \
-          -u ${{ secrets.ACR_USERNAME }} \
-          -p ${{ secrets.ACR_PASSWORD }}
+          # Login to ACR
+          echo '${{ secrets.ACR_PASSWORD }}' | sudo docker login $ACR_LOGIN_SERVER -u ${{ secrets.ACR_USERNAME }} --password-stdin
 
+          # Pull and run frontend
           sudo docker pull $ACR_LOGIN_SERVER/$FRONTEND_IMAGE:latest
           sudo docker stop frontend || true
           sudo docker rm frontend || true
@@ -78,6 +80,9 @@ jobs:
         key: ${{ secrets.VM_SSH_KEY }}
         port: 22
         script: |
+          #!/bin/bash
+          set -e
+
           # Install Docker if missing
           if ! command -v docker &> /dev/null; then
             sudo apt update
@@ -86,10 +91,10 @@ jobs:
             sudo systemctl start docker
           fi
 
-          sudo docker login $ACR_LOGIN_SERVER \
-          -u ${{ secrets.ACR_USERNAME }} \
-          -p ${{ secrets.ACR_PASSWORD }}
+          # Login to ACR
+          echo '${{ secrets.ACR_PASSWORD }}' | sudo docker login $ACR_LOGIN_SERVER -u ${{ secrets.ACR_USERNAME }} --password-stdin
 
+          # Pull and run backend
           sudo docker pull $ACR_LOGIN_SERVER/$BACKEND_IMAGE:latest
           sudo docker stop backend || true
           sudo docker rm backend || true
