@@ -1,14 +1,12 @@
 resource "aws_instance" "web" {
-  ami           = "ami-0f5ee92e2d63afc18"  # Amazon Linux 2 (ap-south-1)
+  ami           = "ami-0f5ee92e2d63afc18"
   instance_type = "t2.micro"
 
   subnet_id              = data.aws_subnet.selected.id
   vpc_security_group_ids = [var.sg_id]
 
+  # 🔥 IMPORTANT FIX
   associate_public_ip_address = true
-
-  # Ensure instance is fully ready before provisioning completes
-  user_data_replace_on_change = true
 
   user_data = <<-EOF
               #!/bin/bash
@@ -30,8 +28,6 @@ resource "aws_instance" "web" {
               EOF
 
   tags = {
-    Name        = "SkinCare-Web-Server"
-    Environment = "dev"
-    ManagedBy   = "terraform"
+    Name = "SkinCare-Web-Server"
   }
 }
