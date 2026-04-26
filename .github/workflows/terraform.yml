@@ -1,18 +1,40 @@
+name: Terraform CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
 jobs:
   terraform:
     runs-on: ubuntu-latest
 
     defaults:
       run:
-        working-directory: infrastructure   # 👈 THIS FIX
+        working-directory: infrastructure   # 👈 IMPORTANT FIX
 
     steps:
-      - name: Checkout Code
+      # =========================
+      # 1. Checkout Code
+      # =========================
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
+      # =========================
+      # 2. Setup Terraform
+      # =========================
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
 
+      # =========================
+      # 3. AWS Credentials
+      # =========================
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -20,11 +42,32 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
+      # =========================
+      # 4. Terraform Init
+      # =========================
       - name: Terraform Init
         run: terraform init
 
+      # =========================
+      # 5. Terraform Format Check
+      # =========================
+      - name: Terraform Format
+        run: terraform fmt -check
+
+      # =========================
+      # 6. Terraform Validate
+      # =========================
+      - name: Terraform Validate
+        run: terraform validate
+
+      # =========================
+      # 7. Terraform Plan
+      # =========================
       - name: Terraform Plan
         run: terraform plan
 
+      # =========================
+      # 8. Terraform Apply
+      # =========================
       - name: Terraform Apply
         run: terraform apply -auto-approve
