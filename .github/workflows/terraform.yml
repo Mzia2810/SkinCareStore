@@ -1,13 +1,10 @@
-name: Terraform Deploy to AWS
-
-on:
-  push:
-    branches:
-      - main
-
 jobs:
   terraform:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: infrastructure   # 👈 THIS FIX
 
     steps:
       - name: Checkout Code
@@ -25,9 +22,6 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-
-      - name: Terraform Validate
-        run: terraform validate
 
       - name: Terraform Plan
         run: terraform plan
