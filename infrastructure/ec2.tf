@@ -1,6 +1,6 @@
 resource "aws_instance" "web" {
   ami           = "ami-0f5ee92e2d63afc18"
-  instance_type = "t2.micro"
+  instance_type = "t3.micro"
 
   subnet_id              = data.aws_subnet.selected.id
   vpc_security_group_ids = [var.sg_id]
