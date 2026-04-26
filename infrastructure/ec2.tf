@@ -13,7 +13,7 @@ resource "aws_instance" "web" {
               systemctl start httpd
               systemctl enable httpd
 
-              echo "<h1>🚀 SkinCare Terraform Web Server LIVE</h1>" > /var/www/html/index.html
+              echo "<h1>🚀 SkinCare Terraform Deployment SUCCESS</h1>" > /var/www/html/index.html
               EOF
 
   tags = {
